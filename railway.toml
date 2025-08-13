@@ -1,0 +1,10 @@
+[build]
+builder = "nixpacks"
+source = "backend"
+
+[deploy]
+startCommand = "python main.py"
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

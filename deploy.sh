@@ -1,0 +1,63 @@
+#!/bin/bash
+
+echo "🚀 DEPLOYING SUDARSHANCHAKRA AI"
+echo "================================"
+
+echo "📋 PRE-DEPLOYMENT CHECKLIST:"
+echo "1. All code committed to GitHub ✅"
+echo "2. Repository is public ✅"
+echo "3. Domain sudarshanchakraai.xyz is ready ✅"
+
+echo ""
+echo "🎯 RECOMMENDED DEPLOYMENT STEPS:"
+echo ""
+
+echo "🔧 STEP 1: DEPLOY BACKEND TO RAILWAY"
+echo "   • Go to: https://railway.app"
+echo "   • Sign up with GitHub"
+echo "   • Click 'New Project'"
+echo "   • Select 'Deploy from GitHub repo'"
+echo "   • Choose your SudarshanChakraAI repository"
+echo "   • Railway will auto-detect Python project"
+echo "   • Deploy automatically"
+echo "   • Copy the backend URL"
+echo ""
+
+echo "🌐 STEP 2: DEPLOY FRONTEND TO VERCEL"
+echo "   • Go to: https://vercel.com"
+echo "   • Sign up with GitHub"
+echo "   • Click 'New Project'"
+echo "   • Import your repository"
+echo "   • Framework: Next.js"
+echo "   • Root Directory: frontend"
+echo "   • Set Environment Variable:"
+echo "     NEXT_PUBLIC_API_URL = [YOUR_RAILWAY_URL]"
+echo "   • Deploy automatically"
+echo ""
+
+echo "🔗 STEP 3: CONNECT CUSTOM DOMAIN"
+echo "   • In Vercel dashboard, go to Domains"
+echo "   • Add: sudarshanchakraai.xyz"
+echo "   • Update DNS records as instructed"
+echo "   • Wait 5-10 minutes for propagation"
+echo ""
+
+echo "✅ STEP 4: TEST DEPLOYMENT"
+echo "   • Test repository scanning"
+echo "   • Verify all advanced features"
+echo "   • Check LLM dashboard"
+echo "   • Ready for hackathon demo!"
+echo ""
+
+echo "🎯 ALTERNATIVE QUICK DEPLOYMENT:"
+echo "   • Use Render.com for both frontend and backend"
+echo "   • Or use DigitalOcean App Platform"
+echo "   • All configurations are ready!"
+echo ""
+
+echo "🏆 YOUR PROJECT WILL BE LIVE AT:"
+echo "   Frontend: https://sudarshanchakraai.xyz"
+echo "   Backend: https://your-project-name.railway.app"
+echo ""
+
+echo "🚀 GOOD LUCK WITH YOUR HACKATHON! 🏆✨"

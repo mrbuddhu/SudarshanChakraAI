@@ -283,4 +283,6 @@ async def detect_zero_day_patterns(code_analysis: dict):
         raise HTTPException(status_code=500, detail=f"Error detecting zero-day patterns: {str(e)}")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import os
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

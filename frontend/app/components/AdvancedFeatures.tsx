@@ -16,7 +16,7 @@ export default function AdvancedFeatures({ scanResults }: AdvancedFeaturesProps)
 
   useEffect(() => {
     // Fetch winning demo data
-    fetch('http://127.0.0.1:8000/demo/winning-data')
+         fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/demo/winning-data`)
       .then(res => res.json())
       .then(data => setWinningData(data))
       .catch(err => console.error('Error fetching demo data:', err))

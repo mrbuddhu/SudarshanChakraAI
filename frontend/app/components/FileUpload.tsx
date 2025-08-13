@@ -25,7 +25,7 @@ export default function FileUpload({ onScanComplete, isScanning, setIsScanning }
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await axios.post('http://127.0.0.1:8000/scan-code', formData, {
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/scan-code`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

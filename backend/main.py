@@ -10,6 +10,8 @@ import os
 from vulnerability_scanner import VulnerabilityScanner
 from cve_database import CVEDatabase
 from ai_analyzer import AIAnalyzer
+from llm_service import LLMService
+from repository_scanner import RepositoryScanner
 
 app = FastAPI(
     title="SudarshanChakraAI",
@@ -20,7 +22,7 @@ app = FastAPI(
 # CORS middleware for frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend domain
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Frontend domains
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,6 +32,8 @@ app.add_middleware(
 vulnerability_scanner = VulnerabilityScanner()
 cve_database = CVEDatabase()
 ai_analyzer = AIAnalyzer()
+llm_service = LLMService()
+repository_scanner = RepositoryScanner()
 
 @app.get("/")
 async def root():
@@ -78,6 +82,39 @@ async def scan_code(file: UploadFile = File(...)):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error scanning code: {str(e)}")
+
+@app.post("/scan-repository")
+async def scan_repository(repo_url: str, scan_type: str = "full"):
+    """Scan entire open source repository for vulnerabilities"""
+    try:
+        # Validate scan type
+        if scan_type not in ["full", "quick"]:
+            scan_type = "full"
+        
+        # Scan repository
+        scan_results = repository_scanner.scan_repository(repo_url, scan_type)
+        
+        if "error" in scan_results:
+            raise HTTPException(status_code=400, detail=scan_results["error"])
+        
+        # Get CVE information for detected vulnerabilities
+        for vuln in scan_results.get('vulnerabilities', []):
+            cve_info = cve_database.get_cve_info(vuln['type'])
+            vuln['cve_info'] = cve_info
+        
+        # AI analysis for explanations
+        ai_analysis = ai_analyzer.analyze_vulnerabilities(
+            scan_results.get('vulnerabilities', []), 
+            f"Repository: {scan_results.get('repository', {}).get('name', 'Unknown')}"
+        )
+        scan_results['ai_analysis'] = ai_analysis
+        
+        return scan_results
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error scanning repository: {str(e)}")
 
 @app.get("/supported-languages")
 async def get_supported_languages():
@@ -130,8 +167,32 @@ async def health_check():
     return {"status": "healthy", "components": {
         "vulnerability_scanner": "running",
         "cve_database": "running",
-        "ai_analyzer": "running"
+        "ai_analyzer": "running",
+        "llm_service": "running"
     }}
+
+@app.post("/llm/config")
+async def update_llm_config(config: dict):
+    """Update LLM configuration"""
+    try:
+        llm_service.update_config(config)
+        return {"status": "success", "message": "LLM configuration updated"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating LLM config: {str(e)}")
+
+@app.get("/llm/config")
+async def get_llm_config():
+    """Get current LLM configuration"""
+    return llm_service.current_config
+
+@app.post("/llm/test")
+async def test_llm_connection():
+    """Test LLM connection"""
+    try:
+        result = llm_service.test_connection()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error testing LLM: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

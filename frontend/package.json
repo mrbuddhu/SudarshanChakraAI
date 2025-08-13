@@ -1,0 +1,43 @@
+{
+  "name": "sudarshanchakraai-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for SudarshanChakraAI - AI-Powered Vulnerability Detection",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "14.0.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "axios": "^1.6.2",
+    "lucide-react": "^0.294.0",
+    "react-dropzone": "^14.2.3",
+    "recharts": "^2.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.9.0",
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.53.0",
+    "eslint-config-next": "14.0.3",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.5",
+    "typescript": "^5.2.2"
+  },
+  "keywords": [
+    "security",
+    "vulnerability-detection",
+    "ai",
+    "cybersecurity",
+    "hackathon",
+    "nextjs",
+    "react"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}

@@ -7,6 +7,7 @@ import RepositoryScanner from './components/RepositoryScanner'
 import VulnerabilityResults from './components/VulnerabilityResults'
 import ChakraVisualization from './components/ChakraVisualization'
 import LLMDashboard from './components/LLMDashboard'
+import AdvancedFeatures from './components/AdvancedFeatures'
 
 export default function Home() {
   const [scanResults, setScanResults] = useState(null)
@@ -215,7 +216,7 @@ export default function Home() {
 
         {/* Results Section */}
         {scanResults && (
-          <div className="mt-16">
+          <div className="mt-16 space-y-12">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Chakra Visualization */}
               <div className="card-modern p-8 rounded-2xl">
@@ -239,6 +240,9 @@ export default function Home() {
                 <VulnerabilityResults results={scanResults} />
               </div>
             </div>
+
+            {/* Advanced Features Section */}
+            <AdvancedFeatures scanResults={scanResults} />
           </div>
         )}
 

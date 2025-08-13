@@ -12,6 +12,7 @@ from cve_database import CVEDatabase
 from ai_analyzer import AIAnalyzer
 from llm_service import LLMService
 from repository_scanner import RepositoryScanner
+from advanced_features import AdvancedFeatures
 
 app = FastAPI(
     title="SudarshanChakraAI",
@@ -34,6 +35,7 @@ cve_database = CVEDatabase()
 ai_analyzer = AIAnalyzer()
 llm_service = LLMService()
 repository_scanner = RepositoryScanner()
+advanced_features = AdvancedFeatures()
 
 @app.get("/")
 async def root():
@@ -108,6 +110,27 @@ async def scan_repository(repo_url: str, scan_type: str = "full"):
             f"Repository: {scan_results.get('repository', {}).get('name', 'Unknown')}"
         )
         scan_results['ai_analysis'] = ai_analysis
+        
+        # Add advanced features for winning
+        scan_results['security_score'] = advanced_features.calculate_security_score(
+            scan_results.get('vulnerabilities', []), 
+            scan_results.get('dependencies', {})
+        )
+        
+        scan_results['compliance_report'] = advanced_features.generate_compliance_report(
+            scan_results.get('vulnerabilities', []),
+            scan_results.get('scan_summary', {}).get('project_type', 'unknown')
+        )
+        
+        scan_results['automated_fixes'] = advanced_features.generate_automated_fixes(
+            scan_results.get('vulnerabilities', [])
+        )
+        
+        scan_results['threat_intelligence'] = advanced_features.generate_threat_intelligence_report(
+            scan_results.get('vulnerabilities', [])
+        )
+        
+        scan_results['advanced_analytics'] = advanced_features.generate_advanced_analytics(scan_results)
         
         return scan_results
         
@@ -193,6 +216,71 @@ async def test_llm_connection():
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error testing LLM: {str(e)}")
+
+# Advanced Features Endpoints for Winning
+@app.get("/advanced/features")
+async def get_advanced_features():
+    """Get list of advanced features"""
+    return {
+        "features": advanced_features.innovation_features,
+        "total_features": len(advanced_features.innovation_features)
+    }
+
+@app.post("/collaboration/session")
+async def create_collaboration_session(project_id: str, users: List[str]):
+    """Create real-time collaboration session"""
+    try:
+        session = advanced_features.create_collaboration_session(project_id, users)
+        return session
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating session: {str(e)}")
+
+@app.post("/collaboration/message")
+async def add_collaboration_message(session_id: str, user: str, message: str, message_type: str = "comment"):
+    """Add message to collaboration session"""
+    try:
+        result = advanced_features.add_collaboration_message(session_id, user, message, message_type)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error adding message: {str(e)}")
+
+@app.get("/collaboration/session/{session_id}")
+async def get_collaboration_session(session_id: str):
+    """Get collaboration session details"""
+    try:
+        if session_id not in advanced_features.collaboration_sessions:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return advanced_features.collaboration_sessions[session_id]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting session: {str(e)}")
+
+@app.get("/demo/winning-data")
+async def get_winning_demo_data():
+    """Get impressive demo data for hackathon presentation"""
+    try:
+        return advanced_features.create_winning_demo_data()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting demo data: {str(e)}")
+
+@app.post("/predict/vulnerabilities")
+async def predict_future_vulnerabilities(code_analysis: dict, project_history: dict = {}):
+    """Predict potential future vulnerabilities"""
+    try:
+        predictions = advanced_features.predict_future_vulnerabilities(code_analysis, project_history)
+        return {"predictions": predictions}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error predicting vulnerabilities: {str(e)}")
+
+@app.post("/detect/zero-day")
+async def detect_zero_day_patterns(code_analysis: dict):
+    """Detect potential zero-day vulnerability patterns"""
+    try:
+        patterns = advanced_features.detect_zero_day_patterns(code_analysis)
+        return {"zero_day_patterns": patterns}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error detecting zero-day patterns: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

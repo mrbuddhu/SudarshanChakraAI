@@ -1,7 +1,7 @@
 import json
 import random
 from typing import List, Dict, Any
-from transformers import pipeline
+import gc
 import torch
 
 class AIAnalyzer:
@@ -13,23 +13,39 @@ class AIAnalyzer:
         self._initialize_llm()
     
     def _initialize_llm(self):
-        """Initialize LLM models for analysis"""
+        """Initialize lightweight LLM models for analysis"""
         try:
-            # Initialize text generation pipeline for explanations
+            # Use smaller, more memory-efficient models
+            from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
+            
+            # Use CPU-only models to save memory
+            device = "cpu"
+            
+            # Initialize lightweight text generation
+            tokenizer = AutoTokenizer.from_pretrained("distilgpt2", use_fast=True)
+            model = AutoModelForCausalLM.from_pretrained("distilgpt2", torch_dtype=torch.float32)
+            
             self.llm_pipeline = pipeline(
                 "text-generation",
-                model="microsoft/DialoGPT-small",
-                torch_dtype=torch.float16,
-                device_map="auto" if torch.cuda.is_available() else None
+                model=model,
+                tokenizer=tokenizer,
+                device=device,
+                torch_dtype=torch.float32
             )
             
-            # Initialize text classification for severity assessment
+            # Use smaller classification model
             self.classifier = pipeline(
                 "text-classification",
-                model="distilbert-base-uncased",
-                torch_dtype=torch.float16,
-                device_map="auto" if torch.cuda.is_available() else None
+                model="distilbert-base-uncased-finetuned-sst-2-english",
+                device=device,
+                torch_dtype=torch.float32
             )
+            
+            # Clear GPU memory if any was allocated
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            gc.collect()
+            
         except Exception as e:
             print(f"LLM initialization failed, using fallback: {e}")
             self.llm_pipeline = None
@@ -89,11 +105,14 @@ class AIAnalyzer:
                     'fix_suggestion': fix_suggestion,
                     'risk_assessment': risk_assessment,
                     'confidence_score': random.uniform(0.85, 0.98),
-                    'ai_model': 'SudarshanChakraAI-LLM'
+                    'ai_model': 'SudarshanChakraAI-Optimized'
                 }
             }
             
             analyzed_vulnerabilities.append(analyzed_vuln)
+            
+            # Clear memory after each analysis
+            gc.collect()
         
         return analyzed_vulnerabilities
     
@@ -101,21 +120,22 @@ class AIAnalyzer:
         """Generate AI-powered explanation for vulnerability"""
         try:
             if self.llm_pipeline:
-                prompt = f"Explain the security vulnerability {vuln_type} found in {vuln.get('file', 'unknown file')} at line {vuln.get('line', 'unknown')}. Code: {vuln.get('code', '')}"
+                prompt = f"Explain {vuln_type} vulnerability: "
                 
                 response = self.llm_pipeline(
                     prompt,
-                    max_length=200,
+                    max_length=100,
                     num_return_sequences=1,
                     temperature=0.7,
-                    do_sample=True
+                    do_sample=True,
+                    pad_token_id=self.llm_pipeline.tokenizer.eos_token_id
                 )
                 
                 if response and len(response) > 0:
                     generated_text = response[0]['generated_text']
                     # Clean up the response
                     explanation = generated_text.replace(prompt, "").strip()
-                    if explanation:
+                    if explanation and len(explanation) > 10:
                         return explanation
         except Exception as e:
             print(f"LLM explanation generation failed: {e}")
@@ -129,21 +149,22 @@ class AIAnalyzer:
         """Generate AI-powered fix suggestion for vulnerability"""
         try:
             if self.llm_pipeline:
-                prompt = f"Provide a fix for the {vuln_type} vulnerability in this code: {vuln.get('code', '')}"
+                prompt = f"Fix for {vuln_type}: "
                 
                 response = self.llm_pipeline(
                     prompt,
-                    max_length=150,
+                    max_length=80,
                     num_return_sequences=1,
                     temperature=0.6,
-                    do_sample=True
+                    do_sample=True,
+                    pad_token_id=self.llm_pipeline.tokenizer.eos_token_id
                 )
                 
                 if response and len(response) > 0:
                     generated_text = response[0]['generated_text']
                     # Clean up the response
                     fix = generated_text.replace(prompt, "").strip()
-                    if fix:
+                    if fix and len(fix) > 10:
                         return fix
         except Exception as e:
             print(f"LLM fix generation failed: {e}")
@@ -176,7 +197,7 @@ class AIAnalyzer:
         try:
             if self.classifier:
                 # Use AI to classify severity
-                text = f"Vulnerability {vuln.get('type', '')} in {vuln.get('file', '')}: {vuln.get('description', '')}"
+                text = f"Vulnerability {vuln.get('type', '')} in {vuln.get('file', '')}"
                 result = self.classifier(text)
                 
                 if result and len(result) > 0:

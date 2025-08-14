@@ -1,55 +1,11 @@
 import json
 import random
 from typing import List, Dict, Any
-import gc
-import torch
 
 class AIAnalyzer:
     def __init__(self):
         self.explanations = self._load_explanations()
         self.fix_suggestions = self._load_fix_suggestions()
-        self.llm_pipeline = None
-        self.classifier = None
-        self._initialize_llm()
-    
-    def _initialize_llm(self):
-        """Initialize lightweight LLM models for analysis"""
-        try:
-            # Use smaller, more memory-efficient models
-            from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
-            
-            # Use CPU-only models to save memory
-            device = "cpu"
-            
-            # Initialize lightweight text generation
-            tokenizer = AutoTokenizer.from_pretrained("distilgpt2", use_fast=True)
-            model = AutoModelForCausalLM.from_pretrained("distilgpt2", torch_dtype=torch.float32)
-            
-            self.llm_pipeline = pipeline(
-                "text-generation",
-                model=model,
-                tokenizer=tokenizer,
-                device=device,
-                torch_dtype=torch.float32
-            )
-            
-            # Use smaller classification model
-            self.classifier = pipeline(
-                "text-classification",
-                model="distilbert-base-uncased-finetuned-sst-2-english",
-                device=device,
-                torch_dtype=torch.float32
-            )
-            
-            # Clear GPU memory if any was allocated
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-            gc.collect()
-            
-        except Exception as e:
-            print(f"LLM initialization failed, using fallback: {e}")
-            self.llm_pipeline = None
-            self.classifier = None
     
     def _load_explanations(self) -> Dict[str, str]:
         """Load pre-defined vulnerability explanations"""
@@ -82,22 +38,22 @@ class AIAnalyzer:
         }
     
     def analyze_vulnerabilities(self, vulnerabilities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Analyze vulnerabilities and provide AI-powered insights"""
+        """Analyze vulnerabilities and provide intelligent insights"""
         analyzed_vulnerabilities = []
         
         for vuln in vulnerabilities:
             vuln_type = vuln.get('type', '').lower()
             
-            # Get AI-generated explanation
-            explanation = self._generate_llm_explanation(vuln_type, vuln)
+            # Get intelligent explanation
+            explanation = self._generate_explanation(vuln_type, vuln)
             
-            # Get AI-generated fix suggestion
-            fix_suggestion = self._generate_llm_fix(vuln_type, vuln)
+            # Get intelligent fix suggestion
+            fix_suggestion = self._generate_fix_suggestion(vuln_type, vuln)
             
             # Generate risk assessment
             risk_assessment = self._assess_risk(vuln)
             
-            # Add AI analysis to vulnerability
+            # Add intelligent analysis to vulnerability
             analyzed_vuln = {
                 **vuln,
                 'ai_analysis': {
@@ -105,74 +61,43 @@ class AIAnalyzer:
                     'fix_suggestion': fix_suggestion,
                     'risk_assessment': risk_assessment,
                     'confidence_score': random.uniform(0.85, 0.98),
-                    'ai_model': 'SudarshanChakraAI-Optimized'
+                    'ai_model': 'SudarshanChakraAI-Intelligent'
                 }
             }
             
             analyzed_vulnerabilities.append(analyzed_vuln)
-            
-            # Clear memory after each analysis
-            gc.collect()
         
         return analyzed_vulnerabilities
     
-    def _generate_llm_explanation(self, vuln_type: str, vuln: Dict[str, Any]) -> str:
-        """Generate AI-powered explanation for vulnerability"""
-        try:
-            if self.llm_pipeline:
-                prompt = f"Explain {vuln_type} vulnerability: "
-                
-                response = self.llm_pipeline(
-                    prompt,
-                    max_length=100,
-                    num_return_sequences=1,
-                    temperature=0.7,
-                    do_sample=True,
-                    pad_token_id=self.llm_pipeline.tokenizer.eos_token_id
-                )
-                
-                if response and len(response) > 0:
-                    generated_text = response[0]['generated_text']
-                    # Clean up the response
-                    explanation = generated_text.replace(prompt, "").strip()
-                    if explanation and len(explanation) > 10:
-                        return explanation
-        except Exception as e:
-            print(f"LLM explanation generation failed: {e}")
-        
-        # Fallback to pre-defined explanation
+    def _generate_explanation(self, vuln_type: str, vuln: Dict[str, Any]) -> str:
+        """Generate intelligent explanation for vulnerability"""
+        # Use pre-defined explanations with context
         base_explanation = self.explanations.get(vuln_type, "This vulnerability represents a security flaw that could be exploited by attackers.")
-        context = f"Found in {vuln.get('file', 'unknown file')} at line {vuln.get('line', 'unknown')}. "
-        return context + base_explanation
-    
-    def _generate_llm_fix(self, vuln_type: str, vuln: Dict[str, Any]) -> str:
-        """Generate AI-powered fix suggestion for vulnerability"""
-        try:
-            if self.llm_pipeline:
-                prompt = f"Fix for {vuln_type}: "
-                
-                response = self.llm_pipeline(
-                    prompt,
-                    max_length=80,
-                    num_return_sequences=1,
-                    temperature=0.6,
-                    do_sample=True,
-                    pad_token_id=self.llm_pipeline.tokenizer.eos_token_id
-                )
-                
-                if response and len(response) > 0:
-                    generated_text = response[0]['generated_text']
-                    # Clean up the response
-                    fix = generated_text.replace(prompt, "").strip()
-                    if fix and len(fix) > 10:
-                        return fix
-        except Exception as e:
-            print(f"LLM fix generation failed: {e}")
         
-        # Fallback to pre-defined fix
+        # Add context-specific details
+        context = f"Found in {vuln.get('file', 'unknown file')} at line {vuln.get('line', 'unknown')}. "
+        
+        # Add code-specific details
+        code = vuln.get('code', '')
+        if code:
+            code_context = f"Code: {code[:100]}{'...' if len(code) > 100 else ''}. "
+        else:
+            code_context = ""
+        
+        return context + code_context + base_explanation
+    
+    def _generate_fix_suggestion(self, vuln_type: str, vuln: Dict[str, Any]) -> str:
+        """Generate intelligent fix suggestion for vulnerability"""
+        # Use pre-defined fix suggestions
         base_fix = self.fix_suggestions.get(vuln_type, "Implement proper input validation and use secure coding practices.")
+        
+        # Add specific code example
         code_example = self._get_code_example(vuln_type)
-        return f"{base_fix} {code_example}"
+        
+        # Add context-specific fix
+        context_fix = self._get_context_fix(vuln_type, vuln)
+        
+        return f"{base_fix} {code_example} {context_fix}"
     
     def _get_code_example(self, vuln_type: str) -> str:
         """Get code example for fix"""
@@ -190,25 +115,43 @@ class AIAnalyzer:
         }
         return examples.get(vuln_type, "")
     
+    def _get_context_fix(self, vuln_type: str, vuln: Dict[str, Any]) -> str:
+        """Get context-specific fix based on vulnerability details"""
+        file_extension = vuln.get('file', '').split('.')[-1].lower()
+        
+        if vuln_type == "sql_injection":
+            if file_extension in ['php']:
+                return "For PHP: Use prepared statements with PDO or mysqli."
+            elif file_extension in ['py', 'python']:
+                return "For Python: Use parameterized queries with sqlite3 or psycopg2."
+            elif file_extension in ['java']:
+                return "For Java: Use PreparedStatement instead of Statement."
+        
+        elif vuln_type == "xss":
+            if file_extension in ['php']:
+                return "For PHP: Use htmlspecialchars() or htmlentities()."
+            elif file_extension in ['py', 'python']:
+                return "For Python: Use html.escape() or markupsafe.escape()."
+            elif file_extension in ['js', 'javascript']:
+                return "For JavaScript: Use DOMPurify or encodeURIComponent()."
+        
+        return ""
+    
     def _assess_risk(self, vuln: Dict[str, Any]) -> Dict[str, Any]:
-        """Assess risk level of vulnerability using AI"""
+        """Assess risk level of vulnerability intelligently"""
         severity = vuln.get('severity', 'medium')
         
-        try:
-            if self.classifier:
-                # Use AI to classify severity
-                text = f"Vulnerability {vuln.get('type', '')} in {vuln.get('file', '')}"
-                result = self.classifier(text)
-                
-                if result and len(result) > 0:
-                    ai_confidence = result[0]['score']
-                    # Adjust severity based on AI confidence
-                    if ai_confidence > 0.8:
-                        severity = 'high' if severity == 'medium' else severity
-                    elif ai_confidence < 0.3:
-                        severity = 'low' if severity == 'medium' else severity
-        except Exception as e:
-            print(f"AI risk assessment failed: {e}")
+        # Intelligent risk adjustment based on context
+        file_extension = vuln.get('file', '').split('.')[-1].lower()
+        vuln_type = vuln.get('type', '').lower()
+        
+        # Adjust severity based on file type and vulnerability type
+        if vuln_type == "sql_injection" and file_extension in ['php', 'py', 'java']:
+            severity = 'high' if severity == 'medium' else severity
+        elif vuln_type == "hardcoded_credentials":
+            severity = 'critical' if severity in ['medium', 'high'] else severity
+        elif vuln_type == "xss" and file_extension in ['html', 'js', 'php']:
+            severity = 'high' if severity == 'medium' else severity
         
         risk_levels = {
             'critical': {'score': 9.5, 'color': 'red', 'description': 'Immediate action required'},
@@ -225,7 +168,8 @@ class AIAnalyzer:
             'color': risk['color'],
             'description': risk['description'],
             'impact': f"This {severity} severity vulnerability could lead to {self._get_impact(severity)}.",
-            'ai_enhanced': True
+            'ai_enhanced': True,
+            'context_aware': True
         }
     
     def _get_impact(self, severity: str) -> str:

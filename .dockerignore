@@ -1,0 +1,42 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+DEPLOYMENT_*.md
+FINAL_*.md
+QUICK_*.md
+RAILWAY_*.md
+WINNING_*.md
+COMMIT_*.md
+DEVELOPMENT_*.md
+
+# Frontend (not needed for backend)
+frontend/
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp

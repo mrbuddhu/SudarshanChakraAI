@@ -2,10 +2,10 @@
 nixPkgs = ["python311", "pip"]
 
 [phases.install]
-cmds = ["cd backend && pip install -r requirements.txt"]
+cmds = ["pip install -r requirements.txt"]
 
 [phases.build]
 cmds = ["echo 'Build complete'"]
 
 [start]
-cmd = "cd backend && python main.py"
+cmd = "python main.py"

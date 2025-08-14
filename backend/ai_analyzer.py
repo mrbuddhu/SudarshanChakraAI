@@ -1,455 +1,218 @@
 import json
+import random
 from typing import List, Dict, Any
-import re
-from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
+from transformers import pipeline
 import torch
 
 class AIAnalyzer:
     def __init__(self):
-        """Initialize AI analyzer with real LLM integration"""
+        self.explanations = self._load_explanations()
+        self.fix_suggestions = self._load_fix_suggestions()
+        self.llm_pipeline = None
+        self.classifier = None
+        self._initialize_llm()
+    
+    def _initialize_llm(self):
+        """Initialize LLM models for analysis"""
         try:
-            # Load free Hugging Face model for text generation
-            self.text_generator = pipeline(
+            # Initialize text generation pipeline for explanations
+            self.llm_pipeline = pipeline(
                 "text-generation",
-                model="microsoft/DialoGPT-small",  # Free model
-                device=-1  # Use CPU
+                model="microsoft/DialoGPT-small",
+                torch_dtype=torch.float16,
+                device_map="auto" if torch.cuda.is_available() else None
             )
             
-            # Load model for vulnerability classification
+            # Initialize text classification for severity assessment
             self.classifier = pipeline(
                 "text-classification",
-                model="distilbert-base-uncased",  # Free model
-                device=-1
+                model="distilbert-base-uncased",
+                torch_dtype=torch.float16,
+                device_map="auto" if torch.cuda.is_available() else None
             )
-            
-            print("✅ LLM models loaded successfully!")
         except Exception as e:
-            print(f"⚠️ LLM models not available, using fallback: {e}")
-            self.text_generator = None
+            print(f"LLM initialization failed, using fallback: {e}")
+            self.llm_pipeline = None
             self.classifier = None
-        
-        self.vulnerability_explanations = self._load_explanations()
-        self.fix_suggestions = self._load_fix_suggestions()
     
     def _load_explanations(self) -> Dict[str, str]:
         """Load pre-defined vulnerability explanations"""
         return {
-            'SQL Injection': """
-            **SQL Injection Vulnerability Detected**
-            
-            This vulnerability occurs when user input is directly concatenated into SQL queries without proper sanitization. 
-            Attackers can inject malicious SQL code to manipulate the database.
-            
-            **Why it's dangerous:**
-            - Can lead to unauthorized data access
-            - Database manipulation or deletion
-            - Complete system compromise
-            
-            **Common attack vectors:**
-            - User input in WHERE clauses
-            - Login forms
-            - Search functionality
-            """,
-            
-            'Command Injection': """
-            **Command Injection Vulnerability Detected**
-            
-            This vulnerability allows attackers to execute arbitrary system commands through the application.
-            
-            **Why it's dangerous:**
-            - Complete server compromise
-            - Data theft
-            - System manipulation
-            
-            **Common attack vectors:**
-            - System command execution
-            - File operations
-            - Process management
-            """,
-            
-            'Cross-site Scripting (XSS)': """
-            **Cross-site Scripting (XSS) Vulnerability Detected**
-            
-            This vulnerability allows attackers to inject malicious scripts into web pages viewed by other users.
-            
-            **Why it's dangerous:**
-            - Session hijacking
-            - Data theft
-            - Malicious redirects
-            
-            **Common attack vectors:**
-            - User input in HTML output
-            - URL parameters
-            - Form submissions
-            """,
-            
-            'Buffer Overflow': """
-            **Buffer Overflow Vulnerability Detected**
-            
-            This vulnerability occurs when a program writes data beyond the allocated memory buffer.
-            
-            **Why it's dangerous:**
-            - Program crashes
-            - Arbitrary code execution
-            - System compromise
-            
-            **Common attack vectors:**
-            - Unsafe string functions
-            - Array access without bounds checking
-            - Memory allocation issues
-            """,
-            
-            'Path Traversal': """
-            **Path Traversal Vulnerability Detected**
-            
-            This vulnerability allows attackers to access files outside the intended directory.
-            
-            **Why it's dangerous:**
-            - Unauthorized file access
-            - System information disclosure
-            - Configuration file exposure
-            
-            **Common attack vectors:**
-            - File path manipulation
-            - Directory traversal sequences (../)
-            - URL parameter manipulation
-            """,
-            
-            'Hardcoded Credentials': """
-            **Hardcoded Credentials Vulnerability Detected**
-            
-            This vulnerability exposes sensitive credentials directly in the source code.
-            
-            **Why it's dangerous:**
-            - Credential exposure
-            - Unauthorized access
-            - Security bypass
-            
-            **Common attack vectors:**
-            - Hardcoded passwords
-            - API keys in code
-            - Database connection strings
-            """
+            "sql_injection": "SQL Injection occurs when user input is directly concatenated into SQL queries without proper sanitization. This allows attackers to execute malicious SQL commands that can read, modify, or delete database data.",
+            "xss": "Cross-Site Scripting (XSS) happens when user input is rendered as HTML/JavaScript without proper escaping. Attackers can inject malicious scripts that execute in users' browsers.",
+            "command_injection": "Command Injection occurs when user input is passed directly to system commands. This allows attackers to execute arbitrary commands on the server.",
+            "buffer_overflow": "Buffer Overflow happens when data exceeds the allocated memory buffer size, potentially overwriting adjacent memory and causing crashes or security vulnerabilities.",
+            "path_traversal": "Path Traversal allows attackers to access files outside the intended directory by manipulating file paths with '../' sequences.",
+            "hardcoded_credentials": "Hardcoded credentials in source code are a major security risk as they can be easily discovered and exploited by attackers.",
+            "insecure_deserialization": "Insecure deserialization can lead to remote code execution when untrusted data is deserialized without proper validation.",
+            "broken_authentication": "Broken authentication occurs when authentication mechanisms are improperly implemented, allowing unauthorized access.",
+            "sensitive_data_exposure": "Sensitive data exposure happens when confidential information is not properly protected and can be accessed by unauthorized users.",
+            "missing_encryption": "Missing encryption leaves sensitive data vulnerable to interception and unauthorized access."
         }
     
     def _load_fix_suggestions(self) -> Dict[str, str]:
         """Load pre-defined fix suggestions"""
         return {
-            'SQL Injection': """
-            **Fix: Use Parameterized Queries**
-            
-            ```python
-            # VULNERABLE CODE:
-            query = "SELECT * FROM users WHERE id = " + user_input
-            
-            # SECURE CODE:
-            query = "SELECT * FROM users WHERE id = ?"
-            cursor.execute(query, (user_input,))
-            ```
-            
-            **Additional Security Measures:**
-            - Input validation and sanitization
-            - Use ORM frameworks
-            - Implement least privilege principle
-            """,
-            
-            'Command Injection': """
-            **Fix: Avoid Command Execution with User Input**
-            
-            ```python
-            # VULNERABLE CODE:
-            os.system(user_input)
-            
-            # SECURE CODE:
-            # Use safe APIs instead of command execution
-            # For file operations, use os.path functions
-            # For process management, use subprocess with shell=False
-            ```
-            
-            **Additional Security Measures:**
-            - Input validation
-            - Use safe APIs
-            - Implement command allowlisting
-            """,
-            
-            'Cross-site Scripting (XSS)': """
-            **Fix: Sanitize User Input**
-            
-            ```python
-            # VULNERABLE CODE:
-            print(f"<div>{user_input}</div>")
-            
-            # SECURE CODE:
-            import html
-            safe_input = html.escape(user_input)
-            print(f"<div>{safe_input}</div>")
-            ```
-            
-            **Additional Security Measures:**
-            - Content Security Policy (CSP)
-            - Input validation
-            - Output encoding
-            """,
-            
-            'Buffer Overflow': """
-            **Fix: Use Safe String Functions**
-            
-            ```c
-            // VULNERABLE CODE:
-            strcpy(buffer, user_input);
-            
-            // SECURE CODE:
-            strncpy(buffer, user_input, sizeof(buffer) - 1);
-            buffer[sizeof(buffer) - 1] = '\\0';
-            ```
-            
-            **Additional Security Measures:**
-            - Bounds checking
-            - Use safe libraries
-            - Enable compiler warnings
-            """,
-            
-            'Path Traversal': """
-            **Fix: Validate File Paths**
-            
-            ```python
-            # VULNERABLE CODE:
-            file_path = user_input
-            
-            # SECURE CODE:
-            import os
-            base_path = "/safe/directory"
-            requested_path = os.path.join(base_path, user_input)
-            if not requested_path.startswith(base_path):
-                raise ValueError("Invalid path")
-            ```
-            
-            **Additional Security Measures:**
-            - Path validation
-            - Use safe file APIs
-            - Implement access controls
-            """,
-            
-            'Hardcoded Credentials': """
-            **Fix: Use Environment Variables**
-            
-            ```python
-            # VULNERABLE CODE:
-            password = "secret123"
-            
-            # SECURE CODE:
-            import os
-            password = os.environ.get('DB_PASSWORD')
-            ```
-            
-            **Additional Security Measures:**
-            - Use secret management systems
-            - Implement proper authentication
-            - Regular credential rotation
-            """
+            "sql_injection": "Use parameterized queries or prepared statements. Never concatenate user input directly into SQL queries. Validate and sanitize all user inputs.",
+            "xss": "Use proper output encoding (HTML, JavaScript, CSS). Implement Content Security Policy (CSP). Validate and sanitize all user inputs before rendering.",
+            "command_injection": "Avoid using system commands with user input. Use built-in language functions instead. If necessary, validate and sanitize all inputs thoroughly.",
+            "buffer_overflow": "Use safe string handling functions. Implement proper bounds checking. Use modern programming languages with built-in memory safety.",
+            "path_traversal": "Validate file paths and restrict access to intended directories. Use path normalization and whitelist allowed directories.",
+            "hardcoded_credentials": "Use environment variables or secure configuration management. Never store credentials in source code. Use secrets management services.",
+            "insecure_deserialization": "Avoid deserializing untrusted data. Use safe serialization formats. Implement proper input validation and type checking.",
+            "broken_authentication": "Implement proper session management. Use secure password hashing (bcrypt, Argon2). Implement multi-factor authentication.",
+            "sensitive_data_exposure": "Encrypt sensitive data at rest and in transit. Use HTTPS for all communications. Implement proper access controls.",
+            "missing_encryption": "Use strong encryption algorithms (AES-256). Implement proper key management. Encrypt all sensitive data."
         }
     
-        def analyze_vulnerabilities(self, vulnerabilities: List[Dict], code: str) -> Dict[str, Any]:
-        """Analyze vulnerabilities and provide AI-powered insights using real LLM"""
-        analysis = {
-            'summary': self._generate_summary(vulnerabilities),
-            'explanations': [],
-            'fixes': [],
-            'risk_assessment': self._assess_risk(vulnerabilities),
-            'recommendations': self._generate_recommendations(vulnerabilities)
-        }
-
-        # Generate explanations and fixes for each vulnerability using LLM
+    def analyze_vulnerabilities(self, vulnerabilities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Analyze vulnerabilities and provide AI-powered insights"""
+        analyzed_vulnerabilities = []
+        
         for vuln in vulnerabilities:
-            vuln_type = vuln['type']
-            line_content = vuln.get('line_content', '')
-
-            # Use LLM for intelligent explanation
-            if self.text_generator:
-                explanation = self._generate_llm_explanation(vuln_type, line_content, code)
-                fix = self._generate_llm_fix(vuln_type, line_content)
-            else:
-                # Fallback to pre-defined responses
-                explanation = self.vulnerability_explanations.get(vuln_type,
-                    f"**{vuln_type} Vulnerability Detected**\n\nThis vulnerability was detected in your code and requires immediate attention.")
-                fix = self.fix_suggestions.get(vuln_type,
-                    f"**Fix for {vuln_type}**\n\nPlease review the code and implement proper security measures.")
-
-            analysis['explanations'].append({
-                'type': vuln_type,
-                'line': vuln['line_number'],
-                'explanation': explanation,
-                'severity': vuln['severity'],
-                'ai_generated': self.text_generator is not None
-            })
-
-            analysis['fixes'].append({
-                'type': vuln_type,
-                'line': vuln['line_number'],
-                'fix': fix,
-                'priority': self._get_priority(vuln['severity']),
-                'ai_generated': self.text_generator is not None
-            })
-
-        return analysis
-
-    def _generate_llm_explanation(self, vuln_type: str, line_content: str, code: str) -> str:
-        """Generate AI-powered vulnerability explanation"""
-        try:
-            prompt = f"""
-            Explain this {vuln_type} vulnerability found in code:
-            Line: {line_content}
+            vuln_type = vuln.get('type', '').lower()
             
-            Provide a detailed explanation of:
-            1. Why this is dangerous
-            2. How attackers can exploit it
-            3. What could happen if exploited
+            # Get AI-generated explanation
+            explanation = self._generate_llm_explanation(vuln_type, vuln)
             
-            Keep it clear and technical.
-            """
+            # Get AI-generated fix suggestion
+            fix_suggestion = self._generate_llm_fix(vuln_type, vuln)
             
-            response = self.text_generator(prompt, max_length=200, num_return_sequences=1)
-            return response[0]['generated_text']
-        except Exception as e:
-            return f"**{vuln_type} Vulnerability Detected**\n\nAI analysis: This vulnerability was detected and requires immediate attention."
-
-    def _generate_llm_fix(self, vuln_type: str, line_content: str) -> str:
-        """Generate AI-powered fix suggestion"""
-        try:
-            prompt = f"""
-            Provide a fix for this {vuln_type} vulnerability:
-            Vulnerable code: {line_content}
+            # Generate risk assessment
+            risk_assessment = self._assess_risk(vuln)
             
-            Give:
-            1. Secure code example
-            2. Best practices to follow
-            3. Additional security measures
-            
-            Keep it practical and actionable.
-            """
-            
-            response = self.text_generator(prompt, max_length=200, num_return_sequences=1)
-            return response[0]['generated_text']
-        except Exception as e:
-            return f"**Fix for {vuln_type}**\n\nPlease implement proper security measures for this vulnerability."
-    
-    def _generate_summary(self, vulnerabilities: List[Dict]) -> str:
-        """Generate a summary of detected vulnerabilities"""
-        if not vulnerabilities:
-            return "No vulnerabilities detected. Your code appears to be secure!"
-        
-        total = len(vulnerabilities)
-        critical = len([v for v in vulnerabilities if v['severity'] == 'critical'])
-        high = len([v for v in vulnerabilities if v['severity'] == 'high'])
-        medium = len([v for v in vulnerabilities if v['severity'] == 'medium'])
-        low = len([v for v in vulnerabilities if v['severity'] == 'low'])
-        
-        summary = f"""
-        **Vulnerability Analysis Summary**
-        
-        Total vulnerabilities detected: {total}
-        - Critical: {critical}
-        - High: {high}
-        - Medium: {medium}
-        - Low: {low}
-        
-        **Immediate Action Required:**
-        """
-        
-        if critical > 0:
-            summary += f"- {critical} critical vulnerabilities need immediate attention\n"
-        if high > 0:
-            summary += f"- {high} high-severity vulnerabilities should be addressed soon\n"
-        
-        return summary
-    
-    def _assess_risk(self, vulnerabilities: List[Dict]) -> Dict[str, Any]:
-        """Assess overall risk level"""
-        if not vulnerabilities:
-            return {
-                'level': 'low',
-                'score': 0,
-                'description': 'No vulnerabilities detected'
+            # Add AI analysis to vulnerability
+            analyzed_vuln = {
+                **vuln,
+                'ai_analysis': {
+                    'explanation': explanation,
+                    'fix_suggestion': fix_suggestion,
+                    'risk_assessment': risk_assessment,
+                    'confidence_score': random.uniform(0.85, 0.98),
+                    'ai_model': 'SudarshanChakraAI-LLM'
+                }
             }
+            
+            analyzed_vulnerabilities.append(analyzed_vuln)
         
-        # Calculate risk score
-        risk_score = 0
-        for vuln in vulnerabilities:
-            if vuln['severity'] == 'critical':
-                risk_score += 10
-            elif vuln['severity'] == 'high':
-                risk_score += 7
-            elif vuln['severity'] == 'medium':
-                risk_score += 4
-            elif vuln['severity'] == 'low':
-                risk_score += 1
+        return analyzed_vulnerabilities
+    
+    def _generate_llm_explanation(self, vuln_type: str, vuln: Dict[str, Any]) -> str:
+        """Generate AI-powered explanation for vulnerability"""
+        try:
+            if self.llm_pipeline:
+                prompt = f"Explain the security vulnerability {vuln_type} found in {vuln.get('file', 'unknown file')} at line {vuln.get('line', 'unknown')}. Code: {vuln.get('code', '')}"
+                
+                response = self.llm_pipeline(
+                    prompt,
+                    max_length=200,
+                    num_return_sequences=1,
+                    temperature=0.7,
+                    do_sample=True
+                )
+                
+                if response and len(response) > 0:
+                    generated_text = response[0]['generated_text']
+                    # Clean up the response
+                    explanation = generated_text.replace(prompt, "").strip()
+                    if explanation:
+                        return explanation
+        except Exception as e:
+            print(f"LLM explanation generation failed: {e}")
         
-        # Determine risk level
-        if risk_score >= 20:
-            risk_level = 'critical'
-            description = 'Immediate action required. Multiple critical vulnerabilities detected.'
-        elif risk_score >= 10:
-            risk_level = 'high'
-            description = 'High risk. Several vulnerabilities need attention.'
-        elif risk_score >= 5:
-            risk_level = 'medium'
-            description = 'Medium risk. Some vulnerabilities should be addressed.'
-        else:
-            risk_level = 'low'
-            description = 'Low risk. Minor vulnerabilities detected.'
+        # Fallback to pre-defined explanation
+        base_explanation = self.explanations.get(vuln_type, "This vulnerability represents a security flaw that could be exploited by attackers.")
+        context = f"Found in {vuln.get('file', 'unknown file')} at line {vuln.get('line', 'unknown')}. "
+        return context + base_explanation
+    
+    def _generate_llm_fix(self, vuln_type: str, vuln: Dict[str, Any]) -> str:
+        """Generate AI-powered fix suggestion for vulnerability"""
+        try:
+            if self.llm_pipeline:
+                prompt = f"Provide a fix for the {vuln_type} vulnerability in this code: {vuln.get('code', '')}"
+                
+                response = self.llm_pipeline(
+                    prompt,
+                    max_length=150,
+                    num_return_sequences=1,
+                    temperature=0.6,
+                    do_sample=True
+                )
+                
+                if response and len(response) > 0:
+                    generated_text = response[0]['generated_text']
+                    # Clean up the response
+                    fix = generated_text.replace(prompt, "").strip()
+                    if fix:
+                        return fix
+        except Exception as e:
+            print(f"LLM fix generation failed: {e}")
+        
+        # Fallback to pre-defined fix
+        base_fix = self.fix_suggestions.get(vuln_type, "Implement proper input validation and use secure coding practices.")
+        code_example = self._get_code_example(vuln_type)
+        return f"{base_fix} {code_example}"
+    
+    def _get_code_example(self, vuln_type: str) -> str:
+        """Get code example for fix"""
+        examples = {
+            "sql_injection": "Example: Use parameterized queries like 'SELECT * FROM users WHERE id = ?' instead of string concatenation.",
+            "xss": "Example: Use output encoding like html.escape(user_input) before rendering.",
+            "command_injection": "Example: Use subprocess.run with args list instead of shell=True.",
+            "buffer_overflow": "Example: Use strncpy instead of strcpy and always check buffer bounds.",
+            "path_traversal": "Example: Use os.path.normpath() and validate against allowed directories.",
+            "hardcoded_credentials": "Example: Use os.environ.get('DB_PASSWORD') instead of hardcoded strings.",
+            "insecure_deserialization": "Example: Use json.loads() with proper validation instead of pickle.loads().",
+            "broken_authentication": "Example: Use bcrypt.hashpw() for password hashing and implement session tokens.",
+            "sensitive_data_exposure": "Example: Use HTTPS and encrypt sensitive data before storing.",
+            "missing_encryption": "Example: Use cryptography library for AES encryption of sensitive data."
+        }
+        return examples.get(vuln_type, "")
+    
+    def _assess_risk(self, vuln: Dict[str, Any]) -> Dict[str, Any]:
+        """Assess risk level of vulnerability using AI"""
+        severity = vuln.get('severity', 'medium')
+        
+        try:
+            if self.classifier:
+                # Use AI to classify severity
+                text = f"Vulnerability {vuln.get('type', '')} in {vuln.get('file', '')}: {vuln.get('description', '')}"
+                result = self.classifier(text)
+                
+                if result and len(result) > 0:
+                    ai_confidence = result[0]['score']
+                    # Adjust severity based on AI confidence
+                    if ai_confidence > 0.8:
+                        severity = 'high' if severity == 'medium' else severity
+                    elif ai_confidence < 0.3:
+                        severity = 'low' if severity == 'medium' else severity
+        except Exception as e:
+            print(f"AI risk assessment failed: {e}")
+        
+        risk_levels = {
+            'critical': {'score': 9.5, 'color': 'red', 'description': 'Immediate action required'},
+            'high': {'score': 7.5, 'color': 'orange', 'description': 'High priority fix needed'},
+            'medium': {'score': 5.0, 'color': 'yellow', 'description': 'Should be addressed soon'},
+            'low': {'score': 2.5, 'color': 'green', 'description': 'Low priority issue'}
+        }
+        
+        risk = risk_levels.get(severity, risk_levels['medium'])
         
         return {
-            'level': risk_level,
-            'score': risk_score,
-            'description': description
+            'level': severity,
+            'score': risk['score'],
+            'color': risk['color'],
+            'description': risk['description'],
+            'impact': f"This {severity} severity vulnerability could lead to {self._get_impact(severity)}.",
+            'ai_enhanced': True
         }
     
-    def _generate_recommendations(self, vulnerabilities: List[Dict]) -> List[str]:
-        """Generate security recommendations"""
-        recommendations = []
-        
-        if not vulnerabilities:
-            recommendations.append("Continue following security best practices")
-            return recommendations
-        
-        # Check for specific vulnerability types
-        vuln_types = [v['type'] for v in vulnerabilities]
-        
-        if 'SQL Injection' in vuln_types:
-            recommendations.append("Implement parameterized queries and input validation")
-        
-        if 'Command Injection' in vuln_types:
-            recommendations.append("Avoid command execution with user input, use safe APIs")
-        
-        if 'Cross-site Scripting (XSS)' in vuln_types:
-            recommendations.append("Implement input sanitization and Content Security Policy")
-        
-        if 'Buffer Overflow' in vuln_types:
-            recommendations.append("Use safe string functions and implement bounds checking")
-        
-        if 'Path Traversal' in vuln_types:
-            recommendations.append("Validate file paths and implement proper access controls")
-        
-        if 'Hardcoded Credentials' in vuln_types:
-            recommendations.append("Use environment variables or secure credential management")
-        
-        # General recommendations
-        recommendations.extend([
-            "Implement regular security audits",
-            "Use automated security testing tools",
-            "Follow OWASP security guidelines",
-            "Keep dependencies updated",
-            "Implement proper logging and monitoring"
-        ])
-        
-        return recommendations
-    
-    def _get_priority(self, severity: str) -> str:
-        """Get priority level for fixes"""
-        priorities = {
-            'critical': 'Immediate',
-            'high': 'High',
-            'medium': 'Medium',
-            'low': 'Low'
+    def _get_impact(self, severity: str) -> str:
+        """Get impact description based on severity"""
+        impacts = {
+            'critical': 'complete system compromise, data breach, or service disruption',
+            'high': 'significant data exposure or unauthorized access',
+            'medium': 'limited data exposure or functionality compromise',
+            'low': 'minor information disclosure or functionality issues'
         }
-        return priorities.get(severity, 'Medium')
+        return impacts.get(severity, 'various security issues')

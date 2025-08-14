@@ -42,7 +42,7 @@ Use **Render.com** (guaranteed to work):
 1. Go to [Render.com](https://render.com)
 2. Create **Web Service**
 3. Connect GitHub repo
-4. Set **Root Directory** to `backend`
+4. Set **Root Directory** to ` backend`
 5. **Build Command**: `pip install -r requirements.txt`
 6. **Start Command**: `python main.py`
 7. Deploy
